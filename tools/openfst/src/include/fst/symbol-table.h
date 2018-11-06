@@ -61,7 +61,22 @@ class DenseSymbolMap {
 
   DenseSymbolMap(const DenseSymbolMap &x);
 
-  std::pair<int64, bool> InsertOrFind(const string &key);
+  std::pair<int64, bool> InsertOrFind(const string &key) {
+    static constexpr float kMaxOccupancyRatio = 0.75;  // Grows when 75% full.
+    if (Size() >= kMaxOccupancyRatio * buckets_.size()) {
+      Rehash(buckets_.size() * 2);
+    }
+    size_t idx = str_hash_(key) & hash_mask_;
+    while (buckets_[idx] != empty_) {
+      const auto stored_value = buckets_[idx];
+      if (symbols_[stored_value] == key) return {stored_value, false};
+      idx = (idx + 1) & hash_mask_;
+    }
+    const auto next = Size();
+    buckets_[idx] = next;
+    symbols_.push_back(key);
+    return {next, true};
+  }
 
   int64 Find(const string &key) const;
 
@@ -73,7 +88,18 @@ class DenseSymbolMap {
 
  private:
   // num_buckets must be power of 2.
-  void Rehash(size_t num_buckets);
+  void Rehash(size_t num_buckets) {
+    buckets_.resize(num_buckets);
+    hash_mask_ = buckets_.size() - 1;
+    std::uninitialized_fill(buckets_.begin(), buckets_.end(), empty_);
+    for (size_t i = 0; i < Size(); ++i) {
+      size_t idx = str_hash_(string(symbols_[i])) & hash_mask_;
+      while (buckets_[idx] != empty_) {
+        idx = (idx + 1) & hash_mask_;
+      }
+      buckets_[idx] = i;
+    }
+  }
 
   int64 empty_;
   std::vector<string> symbols_;

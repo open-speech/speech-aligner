@@ -9,10 +9,9 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 \
     -Wall -Wno-sign-compare -Wno-unused-local-typedefs \
     -Wno-deprecated-declarations -Winit-self -Wno-deprecated-register \
     -Wno-uninitialized \
-    -msse -msse2 \
-    -flax-vector-conversions \
+    -msse -msse2 -pthread \
     -DHAVE_EXECINFO_H=1 -DHAVE_CXXABI_H \
-    -g -fPIC")
+    -O3")
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 find_package(BLAS REQUIRED)
@@ -62,4 +61,4 @@ FILE(GLOB SOURCES
 add_executable(speech-aligner src/bin/speech-aligner.cc ${SOURCES})
 
 # link lib
-target_link_libraries(speech-aligner fst m dl ${BLAS_LIBRARIES})
+target_link_libraries(speech-aligner fst m pthread dl ${BLAS_LIBRARIES})

@@ -17,9 +17,9 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-//#include <locale>
-//#include <utility>
-//#include <codecvt>
+#include <locale>
+#include <utility>
+#include <codecvt>
 #include <iomanip>
 
 #include "base/kaldi-common.h"
@@ -84,39 +84,39 @@ bool AppendFeats(const std::vector<Matrix<BaseFloat> > &in,
 }
 
 
-//std::wstring s2ws(const std::string& str) {
-//  using convert_typeX = std::codecvt_utf8<wchar_t>;
-//  std::wstring_convert<convert_typeX, wchar_t> converterX;
-//
-//  return converterX.from_bytes(str);
-//}
-//
-//std::string ws2s(const std::wstring& wstr) {
-//  using convert_typeX = std::codecvt_utf8<wchar_t>;
-//  std::wstring_convert<convert_typeX, wchar_t> converterX;
-//
-//  return converterX.to_bytes(wstr);
-//}
+std::wstring s2ws(const std::string& str) {
+  using convert_typeX = std::codecvt_utf8<wchar_t>;
+  std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+  return converterX.from_bytes(str);
+}
+
+std::string ws2s(const std::wstring& wstr) {
+  using convert_typeX = std::codecvt_utf8<wchar_t>;
+  std::wstring_convert<convert_typeX, wchar_t> converterX;
+
+  return converterX.to_bytes(wstr);
+}
 
 bool SegWordFMM(fst::SymbolTable *word_syms, const string &sentence,
     vector<string> &words, vector<int32> &word_ids) {
-//  std::wstring sent = s2ws(sentence);
-//  int maxLength = 10, index = 0, length = sent.size();
-//  while (index < length) {
-//    int wordLen = length - index + 1 >= maxLength ? maxLength : length - index + 1;
-//    while (wordLen >= 1) {
-//      std::wstring cur = sent.substr(index, wordLen);
-//      string curWord = ws2s(cur);
-//      int64 word_id = word_syms->Find(curWord);
-//      if ((word_id != -1 && word_id <= 518279) || 1 == wordLen) {
-//        words.push_back(curWord);
-//        word_ids.push_back(word_id);
-//        index += wordLen;
-//        break;
-//      }
-//      wordLen--;
-//    }
-//  }
+  std::wstring sent = s2ws(sentence);
+  int maxLength = 10, index = 0, length = sent.size();
+  while (index < length) {
+    int wordLen = length - index + 1 >= maxLength ? maxLength : length - index + 1;
+    while (wordLen >= 1) {
+      std::wstring cur = sent.substr(index, wordLen);
+      string curWord = ws2s(cur);
+      int64 word_id = word_syms->Find(curWord);
+      if (word_id != -1 || 1 == wordLen) {
+        words.push_back(curWord);
+        word_ids.push_back(word_id);
+        index += wordLen;
+        break;
+      }
+      wordLen--;
+    }
+  }
   return true;
 }
 
@@ -288,18 +288,11 @@ int main(int argc, char *argv[]) {
       am_gmm.Read(ki.Stream(), binary);
     }
 
-    fst::SymbolTable *word_syms = NULL;
-//    word_syms = fst::SymbolTable::ReadText(word_syms_filename);
-//    if (!word_syms) {
-//      KALDI_ERR << "Could not read symbol table from file " << word_syms_filename;
-//    }
-
-//    int64 num = word_syms->AvailableKey();
-//    std::string word = word_syms->Find(100);
-//    int64 id = word_syms->Find(word);
-//    word_syms->WriteText("word_out.txt");
-
-
+    fst::SymbolTable *word_syms = nullptr;
+    word_syms = fst::SymbolTable::ReadText(word_syms_filename);
+    if (!word_syms) {
+      KALDI_ERR << "Could not read symbol table from file " << word_syms_filename;
+    }
 
     std::string empty;
     Int32VectorWriter phones_writer(custom_output || ctm_output ? empty :
@@ -308,15 +301,11 @@ int main(int argc, char *argv[]) {
                                       (write_lengths ? alignment_wspecifier : empty));
     std::ofstream output(alignment_wspecifier);
 
-    fst::SymbolTable *phone_syms = NULL;
+    fst::SymbolTable *phone_syms = nullptr;
     phone_syms = fst::SymbolTable::ReadText(phone_syms_filename);
     if (!phone_syms) {
       KALDI_ERR << "Could not read symbol table from file " << phone_syms_filename;
     }
-
-    int64 num = phone_syms->AvailableKey();
-    std::string word = phone_syms->Find(100);
-    int64 id = phone_syms->Find(word);
 
     std::string ctm_wxfilename(ctm_output ? po.GetArg(3) : empty);
     Output ctm_writer(ctm_wxfilename, false);
