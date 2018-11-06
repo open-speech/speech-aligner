@@ -12,7 +12,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 \
     -msse -msse2 \
     -flax-vector-conversions \
     -DHAVE_EXECINFO_H=1 -DHAVE_CXXABI_H \
-    -g -fPIC")
+    -g")
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 find_package(BLAS REQUIRED)
