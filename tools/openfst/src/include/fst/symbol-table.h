@@ -21,6 +21,8 @@
 #include <fstream>
 #include <map>
 
+#include <fst/util.h>
+
 DECLARE_bool(fst_compat_symbols);
 
 namespace fst {
@@ -97,7 +99,27 @@ class SymbolTableImpl {
         key_map_(impl.key_map_),
         check_sum_finalized_(false) {}
 
-  int64 AddSymbol(const string &symbol, int64 key);
+  int64 AddSymbol(const string &symbol, int64 key) {
+    if (key == kNoSymbol) return key;
+    const auto insert_key = symbols_.InsertOrFind(symbol);
+    if (!insert_key.second) {
+      const auto key_already = GetNthKey(insert_key.first);
+      if (key_already == key) return key;
+      VLOG(1) << "SymbolTable::AddSymbol: symbol = " << symbol
+              << " already in symbol_map_ with key = " << key_already
+              << " but supplied new key = " << key << " (ignoring new key)";
+      return key_already;
+    }
+    if (key == (symbols_.Size() - 1) && key == dense_key_limit_) {
+      ++dense_key_limit_;
+    } else {
+      idx_key_.push_back(key);
+      key_map_[key] = symbols_.Size() - 1;
+    }
+    if (key >= available_key_) available_key_ = key + 1;
+    check_sum_finalized_ = false;
+    return key;
+  }
 
   int64 AddSymbol(const string &symbol) {
     return AddSymbol(symbol, available_key_);
@@ -109,8 +131,40 @@ class SymbolTableImpl {
   void RemoveSymbol(int64 key);
 
   static SymbolTableImpl *ReadText(
-      std::istream &strm, const string &name,
-      const SymbolTableTextOptions &opts = SymbolTableTextOptions());
+      std::istream &strm, const string &filename,
+      const SymbolTableTextOptions &opts = SymbolTableTextOptions()) {
+    std::unique_ptr<SymbolTableImpl> impl(new SymbolTableImpl(filename));
+    int64 nline = 0;
+    static int32 kLineLen = 8096;
+    char line[kLineLen];
+    while (!strm.getline(line, kLineLen).fail()) {
+      ++nline;
+      std::vector<char *> col;
+      const auto separator = opts.fst_field_separator + "\n";
+      SplitString(line, separator.c_str(), &col, true);
+      if (col.empty()) continue;  // Empty line.
+      if (col.size() != 2) {
+        LOG(ERROR) << "SymbolTable::ReadText: Bad number of columns ("
+                   << col.size() << "), "
+                   << "file = " << filename << ", line = " << nline << ":<"
+                   << line << ">";
+        return nullptr;
+      }
+      const char *symbol = col[0];
+      const char *value = col[1];
+      char *p;
+      const auto key = strtoll(value, &p, 10);
+      if (p < value + strlen(value) || (!opts.allow_negative_labels && key < 0) ||
+          key == kNoSymbol) {
+        LOG(ERROR) << "SymbolTable::ReadText: Bad non-negative integer \""
+                   << value << "\", "
+                   << "file = " << filename << ", line = " << nline;
+        return nullptr;
+      }
+      impl->AddSymbol(symbol, key);
+    }
+    return impl.release();
+  }
 
   static SymbolTableImpl* Read(std::istream &strm,
                                const SymbolTableReadOptions &opts);
