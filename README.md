@@ -42,7 +42,7 @@ BAC009S0002W0123
 
 - cmake编译
 
-- ```bash
+  ```bash
   git clone .../speech-aligner.git
   mkdir build && cd build
   cmake ..
@@ -118,7 +118,7 @@ BAC009S0002W0123
 
 - cmake
 
-- ```bash
+  ```bash
   git clone .../speech-aligner.git
   mkdir build && cd build
   cmake ..
