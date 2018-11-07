@@ -44,6 +44,7 @@ BAC009S0002W0123
 
   ```bash
   git clone .../speech-aligner.git
+  cd speech-aligner
   mkdir build && cd build
   cmake ..
   make -j
