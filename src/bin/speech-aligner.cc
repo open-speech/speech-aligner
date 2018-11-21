@@ -115,16 +115,16 @@ bool ReadPhoneSymbol(const string &filename, std::map<int32, string> &id2phn) {
   return true;
 }
 
-std::wstring s2ws(const std::string& str) {
-  std::wstringstream wss;
-  wss << str.c_str();
-  return wss.str();
+std::wstring s2ws(const std::string& s) {
+  std::wstring temp(s.length(), L' ');
+  std::copy(s.begin(), s.end(), temp.begin());
+  return temp;
 }
 
-std::string ws2s(const std::wstring& wstr) {
-  std::stringstream ss;
-  ss << wstr.c_str();
-  return ss.str();
+std::string ws2s(const std::wstring& s) {
+  std::string temp(s.length(), ' ');
+  std::copy(s.begin(), s.end(), temp.begin());
+  return temp;
 }
 
 bool SegWordFMM(std::map<string, int32> &word2id, const string &sentence,
