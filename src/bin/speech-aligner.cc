@@ -21,6 +21,8 @@
 #include <utility>
 #include <codecvt>
 #include <iomanip>
+#include <map>
+#include <fst/util.h>
 
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
@@ -83,6 +85,37 @@ bool AppendFeats(const std::vector<Matrix<BaseFloat> > &in,
   return true;
 }
 
+bool ReadWordSymbol(const string &filename, std::map<string, int32> &word2id) {
+  std::ifstream in(filename);
+  string line;
+  while (std::getline(in, line)) {
+    vector<string> items;
+    std::istringstream iss(line);
+    for(std::string s; iss >> s; )
+      items.push_back(s);
+    KALDI_ASSERT(items.size() == 2);
+    std::string word = items[0];
+    int32 id = std::stoi(items[1]);
+    word2id[word] = id;
+  }
+  return true;
+}
+
+bool ReadPhoneSymbol(const string &filename, std::map<int32, string> &id2phn) {
+  std::ifstream in(filename);
+  string line;
+  while (std::getline(in, line)) {
+    vector<string> items;
+    std::istringstream iss(line);
+    for(std::string s; iss >> s; )
+      items.push_back(s);
+    KALDI_ASSERT(items.size() == 2);
+    std::string phone = items[0];
+    int32 id = std::stoi(items[1]);
+    id2phn[id] = phone;
+  }
+  return true;
+}
 
 std::wstring s2ws(const std::string& str) {
   using convert_typeX = std::codecvt_utf8<wchar_t>;
@@ -98,7 +131,7 @@ std::string ws2s(const std::wstring& wstr) {
   return converterX.to_bytes(wstr);
 }
 
-bool SegWordFMM(fst::SymbolTable *word_syms, const string &sentence,
+bool SegWordFMM(std::map<string, int32> &word2id, const string &sentence,
     vector<string> &words, vector<int32> &word_ids) {
   std::wstring sent = s2ws(sentence);
   int maxLength = 10, index = 0, length = sent.size();
@@ -107,10 +140,9 @@ bool SegWordFMM(fst::SymbolTable *word_syms, const string &sentence,
     while (wordLen >= 1) {
       std::wstring cur = sent.substr(index, wordLen);
       string curWord = ws2s(cur);
-      int64 word_id = word_syms->Find(curWord);
-      if (word_id != -1 || 1 == wordLen) {
+      if (word2id.find(curWord) != word2id.end() || 1 == wordLen) {
         words.push_back(curWord);
-        word_ids.push_back(word_id);
+        word_ids.push_back(word2id[curWord]);
         index += wordLen;
         break;
       }
@@ -288,11 +320,11 @@ int main(int argc, char *argv[]) {
       am_gmm.Read(ki.Stream(), binary);
     }
 
-    fst::SymbolTable *word_syms = nullptr;
-    word_syms = fst::SymbolTable::ReadText(word_syms_filename);
-    if (!word_syms) {
-      KALDI_ERR << "Could not read symbol table from file " << word_syms_filename;
-    }
+    std::map<std::string, int32> word2id;
+    ReadWordSymbol(word_syms_filename, word2id);
+
+    std::map<int32, std::string> id2phone;
+    ReadPhoneSymbol(phone_syms_filename, id2phone);
 
     std::string empty;
     Int32VectorWriter phones_writer(custom_output || ctm_output ? empty :
@@ -300,12 +332,6 @@ int main(int argc, char *argv[]) {
     Int32PairVectorWriter pair_writer(custom_output || ctm_output ? empty :
                                       (write_lengths ? alignment_wspecifier : empty));
     std::ofstream output(alignment_wspecifier);
-
-    fst::SymbolTable *phone_syms = nullptr;
-    phone_syms = fst::SymbolTable::ReadText(phone_syms_filename);
-    if (!phone_syms) {
-      KALDI_ERR << "Could not read symbol table from file " << phone_syms_filename;
-    }
 
     std::string ctm_wxfilename(ctm_output ? po.GetArg(3) : empty);
     Output ctm_writer(ctm_wxfilename, false);
@@ -335,7 +361,7 @@ int main(int argc, char *argv[]) {
       std::string sentence = items[1];
       std::vector<std::string> words;
       std::vector<int32> word_ids;
-      SegWordFMM(word_syms, sentence, words, word_ids);
+      SegWordFMM(word2id, sentence, words, word_ids);
 
       // feats
       const WaveData &wave_data = wav_reader.Value();
@@ -477,7 +503,7 @@ int main(int argc, char *argv[]) {
           for (size_t i = 0; i < split.size(); i++) {
             KALDI_ASSERT(!split[i].empty());
             int32 phone_id = trans_model.TransitionIdToPhone(split[i][0]);
-            std::string phone = phone_syms->Find(phone_id);
+            std::string phone = id2phone[phone_id];
             int32 num_repeats = split[i].size();
             //KALDI_ASSERT(num_repeats!=0);
             st = et;
@@ -529,8 +555,6 @@ int main(int argc, char *argv[]) {
 
     trans_text.close();
     output.close();
-    delete word_syms;
-    delete phone_syms;
     KALDI_LOG << " Done " << num_success << " out of " << num_utts
               << " utterances.";
     return (num_success != 0 ? 0 : 1);
