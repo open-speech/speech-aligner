@@ -17,9 +17,7 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#include <locale>
-#include <utility>
-#include <codecvt>
+#include <sstream>
 #include <iomanip>
 #include <map>
 #include <fst/util.h>
@@ -117,18 +115,16 @@ bool ReadPhoneSymbol(const string &filename, std::map<int32, string> &id2phn) {
   return true;
 }
 
-std::wstring s2ws(const std::string& str) {
-  using convert_typeX = std::codecvt_utf8<wchar_t>;
-  std::wstring_convert<convert_typeX, wchar_t> converterX;
-
-  return converterX.from_bytes(str);
+std::wstring s2ws(const std::string& s) {
+  std::wstring temp(s.length(), L' ');
+  std::copy(s.begin(), s.end(), temp.begin());
+  return temp;
 }
 
-std::string ws2s(const std::wstring& wstr) {
-  using convert_typeX = std::codecvt_utf8<wchar_t>;
-  std::wstring_convert<convert_typeX, wchar_t> converterX;
-
-  return converterX.to_bytes(wstr);
+std::string ws2s(const std::wstring& s) {
+  std::string temp(s.length(), ' ');
+  std::copy(s.begin(), s.end(), temp.begin());
+  return temp;
 }
 
 bool SegWordFMM(std::map<string, int32> &word2id, const string &sentence,

@@ -41,22 +41,22 @@ DenseSymbolMap::DenseSymbolMap(const DenseSymbolMap &other)
       buckets_(other.buckets_),
       hash_mask_(other.hash_mask_) {}
 
-std::pair<int64, bool> DenseSymbolMap::InsertOrFind(const string &key) {
-  static constexpr float kMaxOccupancyRatio = 0.75;  // Grows when 75% full.
-  if (Size() >= kMaxOccupancyRatio * buckets_.size()) {
-    Rehash(buckets_.size() * 2);
-  }
-  size_t idx = str_hash_(key) & hash_mask_;
-  while (buckets_[idx] != empty_) {
-    const auto stored_value = buckets_[idx];
-    if (symbols_[stored_value] == key) return {stored_value, false};
-    idx = (idx + 1) & hash_mask_;
-  }
-  const auto next = Size();
-  buckets_[idx] = next;
-  symbols_.emplace_back(key);
-  return {next, true};
-}
+//std::pair<int64, bool> DenseSymbolMap::InsertOrFind(const string &key) {
+//  static constexpr float kMaxOccupancyRatio = 0.75;  // Grows when 75% full.
+//  if (Size() >= kMaxOccupancyRatio * buckets_.size()) {
+//    Rehash(buckets_.size() * 2);
+//  }
+//  size_t idx = str_hash_(key) & hash_mask_;
+//  while (buckets_[idx] != empty_) {
+//    const auto stored_value = buckets_[idx];
+//    if (symbols_[stored_value] == key) return {stored_value, false};
+//    idx = (idx + 1) & hash_mask_;
+//  }
+//  const auto next = Size();
+//  buckets_[idx] = next;
+//  symbols_.push_back(key);
+//  return {next, true};
+//}
 
 int64 DenseSymbolMap::Find(const string &key) const {
   size_t idx = str_hash_(key) & hash_mask_;
@@ -68,58 +68,58 @@ int64 DenseSymbolMap::Find(const string &key) const {
   return buckets_[idx];
 }
 
-void DenseSymbolMap::Rehash(size_t num_buckets) {
-  buckets_.resize(num_buckets);
-  hash_mask_ = buckets_.size() - 1;
-  std::uninitialized_fill(buckets_.begin(), buckets_.end(), empty_);
-  for (size_t i = 0; i < Size(); ++i) {
-    size_t idx = str_hash_(string(symbols_[i])) & hash_mask_;
-    while (buckets_[idx] != empty_) {
-      idx = (idx + 1) & hash_mask_;
-    }
-    buckets_[idx] = i;
-  }
-}
+//void DenseSymbolMap::Rehash(size_t num_buckets) {
+//  buckets_.resize(num_buckets);
+//  hash_mask_ = buckets_.size() - 1;
+//  std::uninitialized_fill(buckets_.begin(), buckets_.end(), empty_);
+//  for (size_t i = 0; i < Size(); ++i) {
+//    size_t idx = str_hash_(string(symbols_[i])) & hash_mask_;
+//    while (buckets_[idx] != empty_) {
+//      idx = (idx + 1) & hash_mask_;
+//    }
+//    buckets_[idx] = i;
+//  }
+//}
 
 void DenseSymbolMap::RemoveSymbol(size_t idx) {
   symbols_.erase(symbols_.begin() + idx);
   Rehash(buckets_.size());
 }
 
-SymbolTableImpl *SymbolTableImpl::ReadText(std::istream &strm,
-                                           const string &filename,
-                                           const SymbolTableTextOptions &opts) {
-  std::unique_ptr<SymbolTableImpl> impl(new SymbolTableImpl(filename));
-  int64 nline = 0;
-  char line[kLineLen];
-  while (!strm.getline(line, kLineLen).fail()) {
-    ++nline;
-    std::vector<char *> col;
-    const auto separator = opts.fst_field_separator + "\n";
-    SplitString(line, separator.c_str(), &col, true);
-    if (col.empty()) continue;  // Empty line.
-    if (col.size() != 2) {
-      LOG(ERROR) << "SymbolTable::ReadText: Bad number of columns ("
-                 << col.size() << "), "
-                 << "file = " << filename << ", line = " << nline << ":<"
-                 << line << ">";
-      return nullptr;
-    }
-    const char *symbol = col[0];
-    const char *value = col[1];
-    char *p;
-    const auto key = strtoll(value, &p, 10);
-    if (p < value + strlen(value) || (!opts.allow_negative_labels && key < 0) ||
-        key == kNoSymbol) {
-      LOG(ERROR) << "SymbolTable::ReadText: Bad non-negative integer \""
-                 << value << "\", "
-                 << "file = " << filename << ", line = " << nline;
-      return nullptr;
-    }
-    impl->AddSymbol(symbol, key);
-  }
-  return impl.release();
-}
+//SymbolTableImpl *SymbolTableImpl::ReadText(std::istream &strm,
+//                                           const string &filename,
+//                                           const SymbolTableTextOptions &opts) {
+//  std::unique_ptr<SymbolTableImpl> impl(new SymbolTableImpl(filename));
+//  int64 nline = 0;
+//  char line[kLineLen];
+//  while (!strm.getline(line, kLineLen).fail()) {
+//    ++nline;
+//    std::vector<char *> col;
+//    const auto separator = opts.fst_field_separator + "\n";
+//    SplitString(line, separator.c_str(), &col, true);
+//    if (col.empty()) continue;  // Empty line.
+//    if (col.size() != 2) {
+//      LOG(ERROR) << "SymbolTable::ReadText: Bad number of columns ("
+//                 << col.size() << "), "
+//                 << "file = " << filename << ", line = " << nline << ":<"
+//                 << line << ">";
+//      return nullptr;
+//    }
+//    const char *symbol = col[0];
+//    const char *value = col[1];
+//    char *p;
+//    const auto key = strtoll(value, &p, 10);
+//    if (p < value + strlen(value) || (!opts.allow_negative_labels && key < 0) ||
+//        key == kNoSymbol) {
+//      LOG(ERROR) << "SymbolTable::ReadText: Bad non-negative integer \""
+//                 << value << "\", "
+//                 << "file = " << filename << ", line = " << nline;
+//      return nullptr;
+//    }
+//    impl->AddSymbol(symbol, key);
+//  }
+//  return impl.release();
+//}
 
 void SymbolTableImpl::MaybeRecomputeCheckSum() const {
   {
@@ -159,27 +159,27 @@ void SymbolTableImpl::MaybeRecomputeCheckSum() const {
   check_sum_finalized_ = true;
 }
 
-int64 SymbolTableImpl::AddSymbol(const string &symbol, int64 key) {
-  if (key == kNoSymbol) return key;
-  const auto insert_key = symbols_.InsertOrFind(symbol);
-  if (!insert_key.second) {
-    const auto key_already = GetNthKey(insert_key.first);
-    if (key_already == key) return key;
-    VLOG(1) << "SymbolTable::AddSymbol: symbol = " << symbol
-            << " already in symbol_map_ with key = " << key_already
-            << " but supplied new key = " << key << " (ignoring new key)";
-    return key_already;
-  }
-  if (key == (symbols_.Size() - 1) && key == dense_key_limit_) {
-    ++dense_key_limit_;
-  } else {
-    idx_key_.push_back(key);
-    key_map_[key] = symbols_.Size() - 1;
-  }
-  if (key >= available_key_) available_key_ = key + 1;
-  check_sum_finalized_ = false;
-  return key;
-}
+//int64 SymbolTableImpl::AddSymbol(const string &symbol, int64 key) {
+//  if (key == kNoSymbol) return key;
+//  const auto insert_key = symbols_.InsertOrFind(symbol);
+//  if (!insert_key.second) {
+//    const auto key_already = GetNthKey(insert_key.first);
+//    if (key_already == key) return key;
+//    VLOG(1) << "SymbolTable::AddSymbol: symbol = " << symbol
+//            << " already in symbol_map_ with key = " << key_already
+//            << " but supplied new key = " << key << " (ignoring new key)";
+//    return key_already;
+//  }
+//  if (key == (symbols_.Size() - 1) && key == dense_key_limit_) {
+//    ++dense_key_limit_;
+//  } else {
+//    idx_key_.push_back(key);
+//    key_map_[key] = symbols_.Size() - 1;
+//  }
+//  if (key >= available_key_) available_key_ = key + 1;
+//  check_sum_finalized_ = false;
+//  return key;
+//}
 
 // TODO(rybach): Consider a more efficient implementation which re-uses holes in
 // the dense-key range or re-arranges the dense-key range from time to time.
