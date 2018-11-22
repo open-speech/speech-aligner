@@ -30,7 +30,7 @@ BAC009S0002W0123
 
 - 预先准备：
 
-  - cmake >= 3.0
+  - cmake >= 3.1
 
   - 有如下blas接口数学库之一：
 
@@ -126,7 +126,7 @@ BAC009S0002W0123
 
 - requirements
 
-  - cmake >= 3.0
+  - cmake >= 3.1
 
   - one of blas math lib:
 
