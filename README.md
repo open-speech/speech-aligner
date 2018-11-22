@@ -31,14 +31,27 @@ BAC009S0002W0123
 - 预先准备：
 
   - cmake >= 3.0
+
   - 有如下blas接口数学库之一：
+
+    - 建议：mkl
+
+      - 安装 [conda](https://www.anaconda.com/download/)，并通过conda安装mkl：`conda install mkl`（mkl默认会随conda一起安装）
+      - 编译时，确保`conda`可执行（`which conda`有输出）
+
     - atlas
+
       - ubuntu安装: `sudo apt-get install libatlas3-base`
-    - mkl
-      - 建议在conda安装的python虚拟环境中：`conda install mkl`
+
+      - linux发行版众多，数学库路径不一且变动，所以可以通过如下命令进行路径指定：
+
+      - ```bash
+        cmake -DBLAS_VENDORS=ATLAS -DBLAS_ATLAS_LIB_DIRS=[/path/to/atlas/lib ..
+        ```
+
     - OSX系统（Darwin）自带Accelerate framework，可调过这项
+
     - …其他数学库，可查看`cmake/Modules/FindBLAS.cmake`，了解支持的数学库
-  - 如果使用g++编译，则g++ >= 5.0（std::wstring_convert需要）
 
 - cmake编译
 
@@ -70,8 +83,9 @@ BAC009S0002W0123
 - for fun:
   - 鬼畜
     - egs/cn_gc [todo]
-    
+
 ### Todo
+
 - [ ] 中文环境：标点和英文的处理
 - [ ] 增加更多示例
 
@@ -113,12 +127,26 @@ BAC009S0002W0123
 - requirements
 
   - cmake >= 3.0
+
   - one of blas math lib:
+
+    - mkl (recommended)
+
+      - install [conda](https://www.anaconda.com/download/), and use it to install mkl: `conda install mkl` (mkl is installed with conda by default)
+      - when cmake, `conda` should be in your path
+
     - atlas
+
       - ubuntu: `sudo apt-get install libatlas3-base`
-    - mkl
-      - If in conda, to install mkl: `conda install mkl`
-    - Accelerate framework(Darwin)
+
+      - when cmake, it maynot find your atlas automatically, thus you need set the math lib path as below:
+
+      - ```bash
+        cmake -DBLAS_VENDORS=ATLAS -DBLAS_ATLAS_LIB_DIRS=[/path/to/atlas/lib ..
+        ```
+
+    - Accelerate framework (need do nothing for "macOS/Darwin")
+
     - ...
 
 - cmake
