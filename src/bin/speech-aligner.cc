@@ -17,6 +17,8 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
+#include <regex>
+#include <algorithm>
 #include <sstream>
 #include <iomanip>
 #include <map>
@@ -127,7 +129,7 @@ std::string ws2s(const std::wstring& s) {
   return temp;
 }
 
-bool SegWordFMM(std::map<string, int32> &word2id, const string &sentence,
+bool SegWordFMM(std::map<string, int32> &word2id, std::vector<std::string> &strs,
     vector<string> &words, vector<int32> &word_ids) {
   for (auto str: strs) {
     transform(str.begin(), str.end(), str.begin(), ::toupper);
@@ -169,9 +171,9 @@ bool SegWordFMM(std::map<string, int32> &word2id, const string &sentence,
           }
         }
       }
-      wordLen--;
     }
   }
+
   return true;
 }
 
@@ -214,6 +216,7 @@ int main(int argc, char *argv[]) {
     std::string tree_rxfilename;
     std::string model_rxfilename;
     std::string lex_rxfilename;
+    std::string lex_no_opt_sil_rxfilename;
     std::string disambig_rxfilename;
     std::string word_syms_filename;
     TrainingGraphCompilerOptions gopts;
@@ -224,11 +227,14 @@ int main(int argc, char *argv[]) {
     BaseFloat acoustic_scale = 0.1;
     BaseFloat transition_scale = 1.0;
     BaseFloat self_loop_scale = 0.1;
+    BaseFloat boost_sil = 1.0;
     align_config.Register(&po);
+    bool opt_sil = true;
     bool per_frame = false;
     bool write_lengths = false;
     bool ctm_output = false;
     bool custom_output = true;
+    bool mlf_output = false;
     BaseFloat frame_shift = 0.005;
     std::string phone_syms_filename;
 
@@ -259,6 +265,7 @@ int main(int argc, char *argv[]) {
     po.Register("tree-rxfilename", &tree_rxfilename, "tree");
     po.Register("model-rxfilename", &model_rxfilename, "model");
     po.Register("lex-rxfilename", &lex_rxfilename, "lexicon");
+    po.Register("lex-no-opt-sil-rxfilename", &lex_no_opt_sil_rxfilename, "lexicon");
     po.Register("read-disambig-syms", &disambig_rxfilename, "File containing "
                                                             "list of disambiguation symbols in phone symbol table");
     po.Register("word-symbol-table", &word_syms_filename,
@@ -267,6 +274,7 @@ int main(int argc, char *argv[]) {
     // align
     po.Register("acoustic-scale", &acoustic_scale,
                 "Scaling factor for acoustic likelihoods");
+    po.Register("boost-sil", &boost_sil, "Factor by which to boost silence probs");
     po.Register("ctm-output", &ctm_output,
                 "If true, output the alignments in ctm format "
                 "(the confidences will be set to 1)");
@@ -277,7 +285,11 @@ int main(int argc, char *argv[]) {
                 "If true, write the #frames for each phone (different format)");
     po.Register("phone-symbol-table", &phone_syms_filename,
                 "Symbol table for phones");
+    po.Register("opt-sil", &opt_sil,
+                "If true, use lexicon fst that with optional sil");
     po.Register("custom-output", &custom_output,
+                "If true, output in the custom format");
+    po.Register("mlf-output", &mlf_output,
                 "If true, output in the custom format");
 
 
@@ -316,7 +328,12 @@ int main(int argc, char *argv[]) {
     ReadKaldiObject(model_rxfilename, &trans_model);
 
     // need VectorFst because we will change it by adding subseq symbol.
-    VectorFst<StdArc> *lex_fst = fst::ReadFstKaldi(lex_rxfilename);
+    VectorFst<StdArc> *lex_fst;
+    if (opt_sil) {
+      lex_fst = fst::ReadFstKaldi(lex_rxfilename);
+    } else {
+      lex_fst = fst::ReadFstKaldi(lex_no_opt_sil_rxfilename);
+    }
 
     std::vector<int32> disambig_syms;
     if (!disambig_rxfilename.empty())
@@ -343,6 +360,26 @@ int main(int argc, char *argv[]) {
       am_gmm.Read(ki.Stream(), binary);
     }
 
+    std::vector<int32> silence_phones = {1};
+    if (boost_sil != 1.0) { // Do the modification to the am_gmm object.
+      std::vector<int32> pdfs;
+      bool ans = GetPdfsForPhones(trans_model, silence_phones, &pdfs);
+      if (!ans) {
+        KALDI_WARN << "The pdfs for the silence phones may be shared by other phones "
+                   << "(note: this probably does not matter.)";
+      }
+      for (size_t i = 0; i < pdfs.size(); i++) {
+        int32 pdf = pdfs[i];
+        DiagGmm &gmm = am_gmm.GetPdf(pdf);
+        Vector<BaseFloat> weights(gmm.weights());
+        weights.Scale(boost_sil);
+        gmm.SetWeights(weights);
+        gmm.ComputeGconsts();
+      }
+      KALDI_LOG << "Boosted weights for " << pdfs.size()
+                << " pdfs, by factor of " << boost_sil;
+    }
+
     std::map<std::string, int32> word2id;
     ReadWordSymbol(word_syms_filename, word2id);
 
@@ -350,9 +387,9 @@ int main(int argc, char *argv[]) {
     ReadPhoneSymbol(phone_syms_filename, id2phone);
 
     std::string empty;
-    Int32VectorWriter phones_writer(custom_output || ctm_output ? empty :
+    Int32VectorWriter phones_writer(custom_output || mlf_output || ctm_output ? empty :
                                     (write_lengths ? empty : alignment_wspecifier));
-    Int32PairVectorWriter pair_writer(custom_output || ctm_output ? empty :
+    Int32PairVectorWriter pair_writer(custom_output || mlf_output || ctm_output ? empty :
                                       (write_lengths ? alignment_wspecifier : empty));
     std::ofstream output(alignment_wspecifier);
 
@@ -379,12 +416,12 @@ int main(int argc, char *argv[]) {
       std::istringstream iss(line);
       for(std::string s; iss >> s; )
         items.push_back(s);
-      KALDI_ASSERT(items.size() == 2 && "transcript is not in \"key non-blank-characters\" format");
+      KALDI_ASSERT(items.size() >= 2 && "transcript is empty");
       KALDI_ASSERT(utt == items[0] && "wav and text key is not equal");
-      std::string sentence = items[1];
+      items.erase(items.begin());
       std::vector<std::string> words;
       std::vector<int32> word_ids;
-      SegWordFMM(word2id, sentence, words, word_ids);
+      SegWordFMM(word2id, items, words, word_ids);
 
       // feats
       const WaveData &wave_data = wav_reader.Value();
@@ -532,6 +569,42 @@ int main(int argc, char *argv[]) {
             st = et;
             et += num_repeats * frame_shift;
             output << std::fixed << std::setprecision(3) << st << " " << et << " " << phone << std::endl;
+          }
+          output << "." << std::endl;
+        } else if (mlf_output) {
+          int st = 0, et = 0;
+          if (num_utts == 1) {
+            output << "#!MLF!#" << std::endl;
+          }
+          output << "\"*/" << utt << ".lab\"" << std::endl;
+          for (size_t i = 0; i < split.size(); i++) {
+            KALDI_ASSERT(!split[i].empty());
+            int32 phone_id = trans_model.TransitionIdToPhone(split[i][0]);
+            std::string phone = id2phone[phone_id];
+            int32 num_pdf_class_frames = 0;
+            int32 last_pdf_class = -1;
+            for (size_t j = 0; j < split[i].size(); ++j) {
+              int32 trans_id = split[i][j];
+              int32 cur_pdf_class = trans_model.TransitionIdToPdfClass(trans_id);
+              if (last_pdf_class != cur_pdf_class) {
+                if (num_pdf_class_frames > 0) {
+                  et += num_pdf_class_frames * round(frame_shift * 1e3) * 1e4;
+                  output << st << " " << et << " s" << last_pdf_class + 2;
+                  if (last_pdf_class == 0) {
+                    output << " " << phone << std::endl;
+                  } else {
+                    output << std::endl;
+                  }
+                  st = et;
+                  num_pdf_class_frames = 0;
+                }
+                last_pdf_class = cur_pdf_class;
+              }
+              ++num_pdf_class_frames;
+            }
+            et += num_pdf_class_frames * round(frame_shift * 1e3) * 1e4;
+            output << st << " " << et << " s" << last_pdf_class + 2 << std::endl;
+            st = et;
           }
           output << "." << std::endl;
         } else if (ctm_output) {
