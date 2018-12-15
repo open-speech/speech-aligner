@@ -8,21 +8,25 @@
 
 ```bash
 # 调用 bin，输入语音列表和文本、输出对齐结果
-./bin/speech-aligner --config=egs/cn_phn/conf/align.conf egs/cn_phn/data/wav.scp egs/cn_phn/data/text egs/cn_phn/data/out.ali
+cd egs/cn_phn
+speech-aligner --config=conf/align.conf data/wav.scp data/text data/out.ali
 # 查看输出对齐结果，包含: 文件名，音素时间起点(秒) 音素时间终点(秒) 音素
-cat egs/cn_phn/data/text egs/cn_phn/data/out.ali
-BAC009S0002W0123
-0.000 0.025 y
-0.025 0.460 e_3
-0.460 0.850 sil
-0.850 0.985 ch
-0.985 1.095 eng_2
+cat data/text data/out.ali
+BAC009S0002W0122 而对楼市成交抑制作用最大的限购
+BAC009S0002W0122
+0.000 0.535 sil
+0.535 0.540 $0
+0.540 0.745 er_2
+0.745 0.850 d
+0.850 0.895 ui_4
+0.895 1.305 l
+1.305 1.435 ou_2
 ...
-2.655 2.735 zh
-2.735 2.900 ong_1
-2.900 2.960 d
-2.960 3.665 ing_1
-3.665 3.845 sil
+4.955 5.055 x
+5.055 5.525 ian_4
+5.525 5.745 g
+5.745 5.930 ou_4
+5.930 5.975 sil
 .
 ```
 
@@ -65,9 +69,9 @@ BAC009S0002W0123
 
 - 编译结果
 
-  - bin/speech-aligner: 二进制可执行文件，
+  - bin/speech-aligner: 二进制可执行文件，典型调用见egs/cn_phn/run.sh，包括三个参数：
     - 配置：支持通过配置文件和命令行读取参数，建议使用如`--config=egs/cn_phn/conf/align.conf`
-    - 输入：音频列表、对应的文本列表（见egs/cn_phn/data）
+    - 输入：音频列表、对应的文本列表
     - 输出：音素时间对齐标注
 
 ### 应用场景和示例
@@ -83,6 +87,10 @@ BAC009S0002W0123
 - for fun:
   - 鬼畜
     - egs/cn_gc [todo]
+
+### 更新
+
+- 增加支持中文拼音（带调）输入，见egs/cn_phn/data/text
 
 ### Todo
 
