@@ -129,18 +129,45 @@ std::string ws2s(const std::wstring& s) {
 
 bool SegWordFMM(std::map<string, int32> &word2id, const string &sentence,
     vector<string> &words, vector<int32> &word_ids) {
-  std::wstring sent = s2ws(sentence);
-  int maxLength = 10, index = 0, length = sent.size();
-  while (index < length) {
-    int wordLen = length - index + 1 >= maxLength ? maxLength : length - index + 1;
-    while (wordLen >= 1) {
-      std::wstring cur = sent.substr(index, wordLen);
-      string curWord = ws2s(cur);
-      if (word2id.find(curWord) != word2id.end() || 1 == wordLen) {
-        words.push_back(curWord);
-        word_ids.push_back(word2id[curWord]);
-        index += wordLen;
-        break;
+  for (auto str: strs) {
+    transform(str.begin(), str.end(), str.begin(), ::toupper);
+    if (word2id.find(str) != word2id.end()) {
+      // in dict, just add into results
+      words.push_back(str);
+      word_ids.push_back(word2id[str]);
+    } else {
+      // use fmm to seg this str
+      std::wstring sent = s2ws(str);
+      int maxLength = 20, index = 0, length = sent.size();
+      while (index < length) {
+        int wordLen = length - index + 1 >= maxLength ? maxLength : length - index + 1;
+        while (wordLen >= 1) {
+          std::wstring cur = sent.substr(index, wordLen);
+          string curWord = ws2s(cur);
+
+          if (std::regex_match(curWord, std::regex("^\\w+$")) && wordLen > 1) {
+            if (word2id.find(curWord) != word2id.end()) {
+              words.push_back(curWord);
+              word_ids.push_back(word2id[curWord]);
+              index += wordLen;
+              break;
+            } else {
+              for (char const &c: curWord) {
+                words.push_back(string(1, c));
+                word_ids.push_back(word2id[string(1, c)]);
+              }
+              index += wordLen;
+              break;
+            }
+          } else if (word2id.find(curWord) != word2id.end() || 1 == wordLen) {
+            words.push_back(curWord);
+            word_ids.push_back(word2id[curWord]);
+            index += wordLen;
+            break;
+          } else {
+            wordLen--;
+          }
+        }
       }
       wordLen--;
     }
