@@ -1,3 +1,7 @@
 /lib
 /bin
 /build
+
+out\.ali
+
+\.vscode/
