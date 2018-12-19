@@ -11,7 +11,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 \
     -Wno-uninitialized \
     -msse -msse2 -pthread \
     -DHAVE_EXECINFO_H=1 -DHAVE_CXXABI_H \
-    -g")
+    -g -O2")
 
 set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/Modules)
 set(CMAKE_PREFIX_PATH $ENV{CONDA_PREFIX})
