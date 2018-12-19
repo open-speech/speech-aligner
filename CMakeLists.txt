@@ -40,6 +40,7 @@ set(LIBRARY_OUTPUT_PATH ${PROJECT_ROOT_DIR}/lib)
 
 include_directories(${CMAKE_CURRENT_LIST_DIR}/src)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tools/openfst/src/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tools)
 
 add_subdirectory(tools/openfst)
 
