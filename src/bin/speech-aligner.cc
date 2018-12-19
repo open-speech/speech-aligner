@@ -129,9 +129,13 @@ std::string ws2s(const std::wstring &str) {
 }
 
 bool SegWordFMM(std::map<string, int32> &word2id, std::vector<std::string> &strs,
-    vector<string> &words, vector<int32> &word_ids) {
+    vector<string> &words, vector<int32> &word_ids,
+    bool text_case_sensitive=false,
+    bool spell_en_oov=true) {
   for (auto str: strs) {
-    transform(str.begin(), str.end(), str.begin(), ::toupper);
+    if (!text_case_sensitive) {
+      transform(str.begin(), str.end(), str.begin(), ::toupper);
+    }
     if (word2id.find(str) != word2id.end()) {
       // in dict, just add into results
       words.push_back(str);
@@ -146,23 +150,33 @@ bool SegWordFMM(std::map<string, int32> &word2id, std::vector<std::string> &strs
           std::wstring cur = sent.substr(index, wordLen);
           string curWord = ws2s(cur);
 
-          if (std::regex_match(curWord, std::regex("^\\w+$")) && wordLen > 1) {
-            if (word2id.find(curWord) != word2id.end()) {
+          if (std::regex_match(curWord, std::regex("^\\w+$")) && wordLen > 1) { // en
+            if (word2id.find(curWord) != word2id.end()) { // iv
               words.push_back(curWord);
               word_ids.push_back(word2id[curWord]);
               index += wordLen;
               break;
-            } else {
-              for (char const &c: curWord) {
-                words.push_back(string(1, c));
-                word_ids.push_back(word2id[string(1, c)]);
+            } else { // oov
+              if (spell_en_oov) {
+                for (char const &c: curWord) {
+                  words.push_back(string(1, c));
+                  word_ids.push_back(word2id[string(1, c)]);
+                }
+              } else {
+                words.push_back("<UNK>");
+                word_ids.push_back(word2id["<UNK>"]);
               }
               index += wordLen;
               break;
             }
-          } else if (word2id.find(curWord) != word2id.end() || 1 == wordLen) {
+          } else if (word2id.find(curWord) != word2id.end()) { // cn-iv
             words.push_back(curWord);
             word_ids.push_back(word2id[curWord]);
+            index += wordLen;
+            break;
+          } else if (1 == wordLen) { // any 1-char oov
+            words.push_back("<UNK>");
+            word_ids.push_back(word2id["<UNK>"]);
             index += wordLen;
             break;
           } else {
@@ -228,6 +242,8 @@ int main(int argc, char *argv[]) {
     BaseFloat self_loop_scale = 0.1;
     BaseFloat boost_sil = 1.0;
     align_config.Register(&po);
+    bool text_case_sensitive = false;
+    bool spell_en_oov = true;
     bool opt_sil = true;
     bool per_frame = false;
     bool write_lengths = false;
@@ -264,7 +280,7 @@ int main(int argc, char *argv[]) {
     po.Register("tree-rxfilename", &tree_rxfilename, "tree");
     po.Register("model-rxfilename", &model_rxfilename, "model");
     po.Register("lex-rxfilename", &lex_rxfilename, "lexicon");
-    po.Register("lex-no-opt-sil-rxfilename", &lex_no_opt_sil_rxfilename, "lexicon");
+    po.Register("lex-no-opt-sil-rxfilename", &lex_no_opt_sil_rxfilename, "lexicon without optional sil");
     po.Register("read-disambig-syms", &disambig_rxfilename, "File containing "
                                                             "list of disambiguation symbols in phone symbol table");
     po.Register("word-symbol-table", &word_syms_filename,
@@ -284,6 +300,10 @@ int main(int argc, char *argv[]) {
                 "If true, write the #frames for each phone (different format)");
     po.Register("phone-symbol-table", &phone_syms_filename,
                 "Symbol table for phones");
+    po.Register("text-case-sensitive", &text_case_sensitive,
+                "If true, distinguish lower and upper words in text");
+    po.Register("spell-en-oov", &spell_en_oov,
+                "If true, for english oov words, make its pronouciation with each letters");
     po.Register("opt-sil", &opt_sil,
                 "If true, use lexicon fst that with optional sil");
     po.Register("custom-output", &custom_output,
@@ -420,7 +440,7 @@ int main(int argc, char *argv[]) {
       items.erase(items.begin());
       std::vector<std::string> words;
       std::vector<int32> word_ids;
-      SegWordFMM(word2id, items, words, word_ids);
+      SegWordFMM(word2id, items, words, word_ids, text_case_sensitive, spell_en_oov);
 
       // feats
       const WaveData &wave_data = wav_reader.Value();
