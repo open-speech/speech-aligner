@@ -23,6 +23,7 @@
 #include <iomanip>
 #include <map>
 #include <fst/util.h>
+#include <boost/locale/encoding_utf.hpp>
 
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
@@ -46,6 +47,8 @@ namespace kaldi {
 
 using std::vector;
 using std::string;
+using std::wstring;
+using boost::locale::conv::utf_to_utf;
 
 // returns true if successfully appended.
 bool AppendFeats(const std::vector<Matrix<BaseFloat> > &in,
@@ -117,16 +120,12 @@ bool ReadPhoneSymbol(const string &filename, std::map<int32, string> &id2phn) {
   return true;
 }
 
-std::wstring s2ws(const std::string& s) {
-  std::wstring temp(s.length(), L' ');
-  std::copy(s.begin(), s.end(), temp.begin());
-  return temp;
+std::wstring s2ws(const std::string &str) {
+  return utf_to_utf<wchar_t>(str.c_str(), str.c_str() + str.size());
 }
 
-std::string ws2s(const std::wstring& s) {
-  std::string temp(s.length(), ' ');
-  std::copy(s.begin(), s.end(), temp.begin());
-  return temp;
+std::string ws2s(const std::wstring &str) {
+  return utf_to_utf<char>(str.c_str(), str.c_str() + str.size());
 }
 
 bool SegWordFMM(std::map<string, int32> &word2id, std::vector<std::string> &strs,
